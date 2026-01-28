@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
 
-from app.models.playbook import Playbook, PlaybookCreate, PlaybookExecutionResult
+from app.models.playbook import Playbook, PlaybookCreate
 from app.services.playbook_engine import playbook_engine
 
 router = APIRouter(prefix="/playbooks", tags=["Playbooks"])

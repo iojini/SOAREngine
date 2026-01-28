@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from app.models.alert import Alert, AlertSeverity, AlertStatus
+from app.models.alert import Alert, AlertStatus
 from app.models.playbook import (
     Playbook,
     PlaybookCreate,
