@@ -3,7 +3,9 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 
 from app.models.alert import Alert, AlertCreate, AlertStatus
+from app.models.playbook import PlaybookExecutionResult
 from app.services.enrichment import enrichment_service
+from app.services.playbook_engine import playbook_engine
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -66,3 +68,18 @@ async def enrich_alert(alert_id: str) -> Alert:
     alert.status = AlertStatus.ENRICHED
     
     return alert
+
+
+@router.post("/{alert_id}/run-playbooks", response_model=List[PlaybookExecutionResult])
+async def run_playbooks(alert_id: str) -> List[PlaybookExecutionResult]:
+    """Run all matching playbooks for an alert."""
+    if alert_id not in alerts_db:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    alert = alerts_db[alert_id]
+    results = await playbook_engine.run_playbooks_for_alert(alert)
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No matching playbooks found for this alert")
+    
+    return results
