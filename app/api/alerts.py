@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException
 
 from app.models.alert import Alert, AlertCreate, AlertStatus
+from app.services.enrichment import enrichment_service
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -46,3 +47,22 @@ def update_alert_status(alert_id: str, status: AlertStatus) -> Alert:
     
     alerts_db[alert_id].status = status
     return alerts_db[alert_id]
+
+
+@router.post("/{alert_id}/enrich", response_model=Alert)
+async def enrich_alert(alert_id: str) -> Alert:
+    """Enrich an alert with threat intelligence data."""
+    if alert_id not in alerts_db:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    alert = alerts_db[alert_id]
+    alert.status = AlertStatus.PROCESSING
+    
+    # Perform enrichment
+    enrichment_data = await enrichment_service.enrich_alert(alert)
+    
+    # Update alert with enrichment data
+    alert.enrichment_data = enrichment_data
+    alert.status = AlertStatus.ENRICHED
+    
+    return alert
