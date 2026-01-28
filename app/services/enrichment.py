@@ -1,13 +1,17 @@
 import httpx
 from typing import Optional
 
+from app.config import get_settings
+
 
 class EnrichmentService:
     """Service for enriching alerts with threat intelligence data."""
     
     def __init__(self):
-        self.abuseipdb_key: Optional[str] = None
-        self.virustotal_key: Optional[str] = None
+        settings = get_settings()
+        self.abuseipdb_key: Optional[str] = settings.abuseipdb_api_key
+        self.virustotal_key: Optional[str] = settings.virustotal_api_key
+        self.timeout: int = settings.enrichment_timeout
     
     def configure(self, abuseipdb_key: str = None, virustotal_key: str = None):
         """Configure API keys for threat intelligence services."""
