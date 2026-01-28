@@ -6,6 +6,7 @@ from app.models.alert import Alert, AlertCreate, AlertStatus
 from app.models.playbook import PlaybookExecutionResult
 from app.services.enrichment import enrichment_service
 from app.services.playbook_engine import playbook_engine
+from app.services.metrics import ALERTS_CREATED, ALERTS_ENRICHED
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -24,6 +25,13 @@ def create_alert(alert_data: AlertCreate) -> Alert:
     )
     
     alerts_db[alert_id] = alert
+    
+    # Track metric
+    ALERTS_CREATED.labels(
+        severity=alert.severity.value,
+        source=alert.source.value
+    ).inc()
+    
     return alert
 
 
@@ -66,6 +74,9 @@ async def enrich_alert(alert_id: str) -> Alert:
     # Update alert with enrichment data
     alert.enrichment_data = enrichment_data
     alert.status = AlertStatus.ENRICHED
+    
+    # Track metric
+    ALERTS_ENRICHED.inc()
     
     return alert
 
