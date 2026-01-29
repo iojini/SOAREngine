@@ -1,11 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.api_key import verify_api_key
-
+from app.database.db import get_db
+from app.database.repository import AlertRepository
 from app.models.mitre import MitreTechnique, AlertMitreMapping
 from app.services.mitre_mapper import mitre_mapper
-from app.api.alerts import alerts_db
 
 router = APIRouter(
     prefix="/mitre",
@@ -39,11 +40,16 @@ def get_techniques_by_tactic(tactic: str) -> List[MitreTechnique]:
 
 
 @router.post("/alerts/{alert_id}/map", response_model=AlertMitreMapping)
-def map_alert_to_mitre(alert_id: str) -> AlertMitreMapping:
+async def map_alert_to_mitre(
+    alert_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> AlertMitreMapping:
     """Map an alert to MITRE ATT&CK techniques."""
-    if alert_id not in alerts_db:
+    repo = AlertRepository(db)
+    alert = await repo.get_by_id(alert_id)
+    
+    if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
     
-    alert = alerts_db[alert_id]
     mapping = mitre_mapper.map_alert(alert)
     return mapping

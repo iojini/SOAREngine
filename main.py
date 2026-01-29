@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -5,13 +7,23 @@ from app.api.alerts import router as alerts_router
 from app.api.playbooks import router as playbooks_router
 from app.api.mitre import router as mitre_router
 from app.config import get_settings
+from app.database.db import init_db
 
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize resources on startup."""
+    await init_db()
+    yield
+
 
 app = FastAPI(
     title=settings.app_name,
     description="Security Orchestration, Automation & Response Platform",
-    version=settings.app_version
+    version=settings.app_version,
+    lifespan=lifespan
 )
 
 # Register routers

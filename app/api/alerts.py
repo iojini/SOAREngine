@@ -1,9 +1,10 @@
-from typing import Dict, List
-from uuid import uuid4
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.api_key import verify_api_key
-
+from app.database.db import get_db
+from app.database.repository import AlertRepository
 from app.models.alert import Alert, AlertCreate, AlertStatus
 from app.models.playbook import PlaybookExecutionResult
 from app.services.enrichment import enrichment_service
@@ -16,21 +17,15 @@ router = APIRouter(
     dependencies=[Depends(verify_api_key)]
 )
 
-# In-memory storage (we'll replace with a database later)
-alerts_db: Dict[str, Alert] = {}
-
 
 @router.post("/", response_model=Alert)
-def create_alert(alert_data: AlertCreate) -> Alert:
+async def create_alert(
+    alert_data: AlertCreate,
+    db: AsyncSession = Depends(get_db)
+) -> Alert:
     """Submit a new security alert for processing."""
-    alert_id = str(uuid4())
-    
-    alert = Alert(
-        id=alert_id,
-        **alert_data.model_dump()
-    )
-    
-    alerts_db[alert_id] = alert
+    repo = AlertRepository(db)
+    alert = await repo.create(alert_data)
     
     # Track metric
     ALERTS_CREATED.labels(
@@ -42,44 +37,67 @@ def create_alert(alert_data: AlertCreate) -> Alert:
 
 
 @router.get("/", response_model=List[Alert])
-def list_alerts() -> List[Alert]:
-    """Get all alerts."""
-    return list(alerts_db.values())
+async def list_alerts(
+    limit: int = 100,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db)
+) -> List[Alert]:
+    """Get all alerts with pagination."""
+    repo = AlertRepository(db)
+    return await repo.get_all(limit=limit, offset=offset)
 
 
 @router.get("/{alert_id}", response_model=Alert)
-def get_alert(alert_id: str) -> Alert:
+async def get_alert(
+    alert_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> Alert:
     """Get a specific alert by ID."""
-    if alert_id not in alerts_db:
+    repo = AlertRepository(db)
+    alert = await repo.get_by_id(alert_id)
+    
+    if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
-    return alerts_db[alert_id]
+    
+    return alert
 
 
 @router.patch("/{alert_id}/status", response_model=Alert)
-def update_alert_status(alert_id: str, status: AlertStatus) -> Alert:
+async def update_alert_status(
+    alert_id: str,
+    status: AlertStatus,
+    db: AsyncSession = Depends(get_db)
+) -> Alert:
     """Update the status of an alert."""
-    if alert_id not in alerts_db:
+    repo = AlertRepository(db)
+    alert = await repo.update_status(alert_id, status)
+    
+    if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
     
-    alerts_db[alert_id].status = status
-    return alerts_db[alert_id]
+    return alert
 
 
 @router.post("/{alert_id}/enrich", response_model=Alert)
-async def enrich_alert(alert_id: str) -> Alert:
+async def enrich_alert(
+    alert_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> Alert:
     """Enrich an alert with threat intelligence data."""
-    if alert_id not in alerts_db:
+    repo = AlertRepository(db)
+    alert = await repo.get_by_id(alert_id)
+    
+    if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
     
-    alert = alerts_db[alert_id]
-    alert.status = AlertStatus.PROCESSING
+    # Update status to processing
+    await repo.update_status(alert_id, AlertStatus.PROCESSING)
     
     # Perform enrichment
     enrichment_data = await enrichment_service.enrich_alert(alert)
     
     # Update alert with enrichment data
-    alert.enrichment_data = enrichment_data
-    alert.status = AlertStatus.ENRICHED
+    alert = await repo.update_enrichment(alert_id, enrichment_data)
     
     # Track metric
     ALERTS_ENRICHED.inc()
@@ -87,13 +105,33 @@ async def enrich_alert(alert_id: str) -> Alert:
     return alert
 
 
-@router.post("/{alert_id}/run-playbooks", response_model=List[PlaybookExecutionResult])
-async def run_playbooks(alert_id: str) -> List[PlaybookExecutionResult]:
-    """Run all matching playbooks for an alert."""
-    if alert_id not in alerts_db:
+@router.delete("/{alert_id}")
+async def delete_alert(
+    alert_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """Delete an alert."""
+    repo = AlertRepository(db)
+    deleted = await repo.delete(alert_id)
+    
+    if not deleted:
         raise HTTPException(status_code=404, detail="Alert not found")
     
-    alert = alerts_db[alert_id]
+    return {"message": "Alert deleted successfully"}
+
+
+@router.post("/{alert_id}/run-playbooks", response_model=List[PlaybookExecutionResult])
+async def run_playbooks(
+    alert_id: str,
+    db: AsyncSession = Depends(get_db)
+) -> List[PlaybookExecutionResult]:
+    """Run all matching playbooks for an alert."""
+    repo = AlertRepository(db)
+    alert = await repo.get_by_id(alert_id)
+    
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
     results = await playbook_engine.run_playbooks_for_alert(alert)
     
     if not results:
