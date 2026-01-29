@@ -1,11 +1,10 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Text, DateTime, Enum as SQLEnum
+from sqlalchemy import String, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.db import Base
-from app.models.alert import AlertSeverity, AlertStatus, AlertSource
 
 
 class AlertDB(Base):
