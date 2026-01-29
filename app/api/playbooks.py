@@ -1,10 +1,16 @@
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.auth.api_key import verify_api_key
 
 from app.models.playbook import Playbook, PlaybookCreate
 from app.services.playbook_engine import playbook_engine
 
-router = APIRouter(prefix="/playbooks", tags=["Playbooks"])
+router = APIRouter(
+    prefix="/playbooks",
+    tags=["Playbooks"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 @router.post("/", response_model=Playbook)

@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     # API settings
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    api_keys: str = ""
+    
+    @property
+    def api_keys_list(self) -> list[str]:
+        """Parse comma-separated API keys."""
+        if not self.api_keys:
+            return []
+        return [key.strip() for key in self.api_keys.split(",") if key.strip()]
     
     # Threat Intelligence API Keys
     abuseipdb_api_key: Optional[str] = None

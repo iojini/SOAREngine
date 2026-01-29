@@ -1,6 +1,8 @@
 from typing import Dict, List
 from uuid import uuid4
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.auth.api_key import verify_api_key
 
 from app.models.alert import Alert, AlertCreate, AlertStatus
 from app.models.playbook import PlaybookExecutionResult
@@ -8,7 +10,11 @@ from app.services.enrichment import enrichment_service
 from app.services.playbook_engine import playbook_engine
 from app.services.metrics import ALERTS_CREATED, ALERTS_ENRICHED
 
-router = APIRouter(prefix="/alerts", tags=["Alerts"])
+router = APIRouter(
+    prefix="/alerts",
+    tags=["Alerts"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 # In-memory storage (we'll replace with a database later)
 alerts_db: Dict[str, Alert] = {}

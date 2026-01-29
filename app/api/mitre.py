@@ -1,11 +1,17 @@
 from typing import List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.auth.api_key import verify_api_key
 
 from app.models.mitre import MitreTechnique, AlertMitreMapping
 from app.services.mitre_mapper import mitre_mapper
 from app.api.alerts import alerts_db
 
-router = APIRouter(prefix="/mitre", tags=["MITRE ATT&CK"])
+router = APIRouter(
+    prefix="/mitre",
+    tags=["MITRE ATT&CK"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 @router.get("/techniques", response_model=List[MitreTechnique])
