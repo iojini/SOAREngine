@@ -1,4 +1,6 @@
 from typing import List
+from fastapi import Request
+from app.rate_limit import limiter
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +21,9 @@ router = APIRouter(
 
 
 @router.post("/", response_model=Alert)
+@limiter.limit("30/minute")
 async def create_alert(
+    request: Request,
     alert_data: AlertCreate,
     db: AsyncSession = Depends(get_db)
 ) -> Alert:

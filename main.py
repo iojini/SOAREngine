@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi.errors import RateLimitExceeded
 
 from app.api.alerts import router as alerts_router
 from app.api.playbooks import router as playbooks_router
@@ -9,6 +10,7 @@ from app.api.mitre import router as mitre_router
 from app.api.notifications import router as notifications_router
 from app.config import get_settings
 from app.database.db import init_db
+from app.rate_limit import limiter, rate_limit_exceeded_handler
 
 settings = get_settings()
 
@@ -26,6 +28,10 @@ app = FastAPI(
     version=settings.app_version,
     lifespan=lifespan
 )
+
+# Add rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Register routers
 app.include_router(alerts_router)
