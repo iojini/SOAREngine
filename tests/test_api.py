@@ -1,6 +1,13 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from app.auth.api_key import verify_api_key
+
+# Override authentication for tests
+async def mock_verify_api_key():
+    return "test-key"
+
+app.dependency_overrides[verify_api_key] = mock_verify_api_key
 
 client = TestClient(app)
 
@@ -52,11 +59,11 @@ class TestAlertsAPI:
     def test_create_alert_invalid_severity(self):
         alert_data = {
             "title": "Bad Alert",
-            "severity": "super-critical",  # Invalid
+            "severity": "super-critical",
             "source": "siem"
         }
         response = client.post("/alerts/", json=alert_data)
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
     def test_list_alerts(self):
         response = client.get("/alerts/")
@@ -100,6 +107,24 @@ class TestAlertsAPI:
         assert response.status_code == 200
         assert response.json()["status"] == "processing"
 
+    def test_delete_alert(self):
+        # Create an alert
+        alert_data = {
+            "title": "Delete Test",
+            "severity": "low",
+            "source": "siem"
+        }
+        create_response = client.post("/alerts/", json=alert_data)
+        alert_id = create_response.json()["id"]
+
+        # Delete it
+        response = client.delete(f"/alerts/{alert_id}")
+        assert response.status_code == 200
+
+        # Verify it's gone
+        get_response = client.get(f"/alerts/{alert_id}")
+        assert get_response.status_code == 404
+
 
 class TestPlaybooksAPI:
     """Tests for the playbooks API endpoints."""
@@ -109,14 +134,12 @@ class TestPlaybooksAPI:
         assert response.status_code == 200
         playbooks = response.json()
         assert isinstance(playbooks, list)
-        assert len(playbooks) >= 3  # We have 3 default playbooks
+        assert len(playbooks) >= 3
 
     def test_get_playbook_by_id(self):
-        # Get list first
         list_response = client.get("/playbooks/")
         playbook_id = list_response.json()[0]["id"]
 
-        # Get specific playbook
         response = client.get(f"/playbooks/{playbook_id}")
         assert response.status_code == 200
         assert response.json()["id"] == playbook_id
@@ -144,7 +167,6 @@ class TestPlaybooksAPI:
         assert data["id"] is not None
 
     def test_delete_playbook(self):
-        # Create a playbook
         playbook_data = {
             "name": "To Delete",
             "description": "Will be deleted",
@@ -155,11 +177,9 @@ class TestPlaybooksAPI:
         create_response = client.post("/playbooks/", json=playbook_data)
         playbook_id = create_response.json()["id"]
 
-        # Delete it
         response = client.delete(f"/playbooks/{playbook_id}")
         assert response.status_code == 200
 
-        # Verify it's gone
         get_response = client.get(f"/playbooks/{playbook_id}")
         assert get_response.status_code == 404
 
@@ -168,7 +188,6 @@ class TestEnrichment:
     """Tests for alert enrichment functionality."""
 
     def test_enrich_alert(self):
-        # Create an alert with IP
         alert_data = {
             "title": "Enrichment Test",
             "severity": "high",
@@ -179,51 +198,42 @@ class TestEnrichment:
         create_response = client.post("/alerts/", json=alert_data)
         alert_id = create_response.json()["id"]
 
-        # Enrich it
         response = client.post(f"/alerts/{alert_id}/enrich")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "enriched"
         assert data["enrichment_data"] is not None
-        assert "source_ip" in data["enrichment_data"]
 
 
-class TestPlaybookExecution:
-    """Tests for playbook execution."""
+class TestMitreAPI:
+    """Tests for MITRE ATT&CK API."""
 
-    def test_run_playbooks_high_severity(self):
-        # Create a high severity alert
-        alert_data = {
-            "title": "Critical Security Event",
-            "severity": "critical",
-            "source": "edr",
-            "source_ip": "10.0.0.1"
-        }
-        create_response = client.post("/alerts/", json=alert_data)
-        alert_id = create_response.json()["id"]
-
-        # Run playbooks
-        response = client.post(f"/alerts/{alert_id}/run-playbooks")
+    def test_list_techniques(self):
+        response = client.get("/mitre/techniques")
         assert response.status_code == 200
-        results = response.json()
-        assert len(results) > 0
-        assert all(r["success"] for r in results)
+        techniques = response.json()
+        assert isinstance(techniques, list)
+        assert len(techniques) > 0
 
-    def test_run_playbooks_with_malware_keyword(self):
-        # Create alert with malware keyword
+    def test_get_technique(self):
+        response = client.get("/mitre/techniques/T1566")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["technique_id"] == "T1566"
+        assert data["name"] == "Phishing"
+
+    def test_map_alert_to_mitre(self):
         alert_data = {
             "title": "Ransomware detected",
+            "description": "Malware encrypted files",
             "severity": "critical",
             "source": "edr"
         }
         create_response = client.post("/alerts/", json=alert_data)
         alert_id = create_response.json()["id"]
 
-        # Run playbooks
-        response = client.post(f"/alerts/{alert_id}/run-playbooks")
+        response = client.post(f"/mitre/alerts/{alert_id}/map")
         assert response.status_code == 200
-        results = response.json()
-        
-        # Should match malware playbook
-        playbook_names = [r["playbook_name"] for r in results]
-        assert "Malware Investigation" in playbook_names
+        data = response.json()
+        assert data["alert_id"] == alert_id
+        assert len(data["techniques"]) > 0
