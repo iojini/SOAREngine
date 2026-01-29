@@ -1,13 +1,34 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 from app.auth.api_key import verify_api_key
+from app.database.db import Base, engine
 
 # Override authentication for tests
 async def mock_verify_api_key():
     return "test-key"
 
 app.dependency_overrides[verify_api_key] = mock_verify_api_key
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_database():
+    """Create tables before tests and drop after."""
+    import asyncio
+    
+    async def init():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    
+    async def cleanup():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    
+    asyncio.get_event_loop().run_until_complete(init())
+    yield
+    asyncio.get_event_loop().run_until_complete(cleanup())
+
 
 client = TestClient(app)
 
