@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "tDbX7SECPI750P15Y0xu7mjK6h0vv6VQ0AvFk9QkbEs=",
+  "Source": "WebhookReceiver",
+  "BasePath": "_content/WebhookReceiver",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
