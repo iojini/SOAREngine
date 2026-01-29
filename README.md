@@ -1,6 +1,6 @@
 # SOAREngine
 
-A Security Orchestration, Automation & Response (SOAR) platform built with Python/FastAPI and C#/.NET Core.
+A Security Orchestration, Automation & Response (SOAR) platform built with Python/FastAPI, C#/.NET Core, and React.
 
 ![CI](https://github.com/iojini/SOAREngine/actions/workflows/ci.yml/badge.svg)
 
@@ -13,7 +13,16 @@ SOAREngine automates security operations by:
 - **Executing automated playbooks** based on configurable trigger conditions
 - **Sending notifications** via Slack webhooks
 - **Providing analytics** with dashboard-ready statistics endpoints
+- **Visualizing data** in a real-time React dashboard with MITRE ATT&CK heat map
 - **Exposing Prometheus metrics** for production monitoring
+
+## Screenshots
+
+### Dashboard Overview
+The React dashboard provides real-time visibility into security alerts:
+- **Metrics Cards** — Total alerts, critical/high counts, pending, enriched, and today's alerts
+- **Alerts Table** — View, enrich, run playbooks, map to MITRE, and delete alerts
+- **MITRE ATT&CK Heat Map** — Visual coverage of detected techniques across tactics
 
 ## Architecture
 ```
@@ -37,6 +46,12 @@ SOAREngine automates security operations by:
                     │  MITRE  │ │  Slack  │    │ Threat  │  │ Ticket  │ │ Metrics │
                     │ Mapping │ │ Notify  │    │  Intel  │  │ Create  │ │ Export  │
                     └─────────┘ └─────────┘    └─────────┘  └─────────┘ └─────────┘
+                                                      │
+                                                      ▼
+                                            ┌─────────────────┐
+                                            │     React       │
+                                            │    Dashboard    │
+                                            └─────────────────┘
 ```
 
 ## Features
@@ -55,10 +70,17 @@ SOAREngine automates security operations by:
 - **Alert Forwarding**: Automatically forward alerts to SOAREngine API
 - **Generic Webhook Support**: Handle arbitrary JSON payloads
 
+### React Dashboard
+- **Real-time Metrics**: Live alert counts by severity and status
+- **Alerts Table**: Interactive table with enrich, playbook, MITRE mapping, and delete actions
+- **MITRE ATT&CK Heat Map**: Visual representation of technique coverage across tactics
+- **Create Alerts**: Modal form to create new alerts directly from the dashboard
+
 ### Security & Production Features
 - **API Key Authentication**: Secure all endpoints with API key validation
 - **Rate Limiting**: Protect against API abuse (30 requests/minute)
 - **Environment Configuration**: Manage settings via environment variables
+- **CORS Support**: Secure cross-origin requests from the React dashboard
 - **Docker Support**: Containerized deployment ready
 - **CI/CD Pipeline**: Automated testing and builds with GitHub Actions
 
@@ -69,6 +91,7 @@ SOAREngine automates security operations by:
 | **Backend API** | Python 3.12, FastAPI, Pydantic |
 | **Database** | SQLite with SQLAlchemy (async) |
 | **Webhook Receiver** | C# / .NET 8.0 |
+| **Frontend Dashboard** | React 18, Axios, Recharts |
 | **HTTP Client** | httpx (async) |
 | **Metrics** | Prometheus |
 | **Rate Limiting** | SlowAPI |
@@ -79,10 +102,10 @@ SOAREngine automates security operations by:
 
 ### Prerequisites
 - Python 3.10+
+- Node.js 18+ (for dashboard)
 - .NET 8.0 SDK (for webhook receiver)
-- pip
 
-### Installation
+### 1. Start the API
 ```bash
 # Clone the repository
 git clone https://github.com/iojini/SOAREngine.git
@@ -95,15 +118,33 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Create .env file
+echo "API_KEYS=test-secret-key-12345" > .env
+
 # Run the server
 uvicorn main:app --reload
 ```
 
-### Run Webhook Receiver (Optional)
+### 2. Start the Dashboard
 ```bash
+# In a new terminal
+cd dashboard
+npm install
+npm start
+```
+
+### 3. Start Webhook Receiver (Optional)
+```bash
+# In a new terminal
 cd webhook-receiver/WebhookReceiver
 dotnet run
 ```
+
+### Access Points
+- **React Dashboard**: http://localhost:3000
+- **API Swagger UI**: http://127.0.0.1:8000/docs
+- **Prometheus Metrics**: http://127.0.0.1:8000/metrics
+- **Webhook Receiver**: http://localhost:5279/swagger
 
 ### Docker
 ```bash
@@ -111,11 +152,17 @@ dotnet run
 docker-compose up --build
 ```
 
-### Access the API
-- **Swagger UI**: http://127.0.0.1:8000/docs
-- **Health Check**: http://127.0.0.1:8000/health
-- **Prometheus Metrics**: http://127.0.0.1:8000/metrics
-- **Webhook Receiver**: http://localhost:5279/swagger
+## Demo Workflow
+
+1. **Open the Dashboard** at http://localhost:3000
+2. **Click "+ New Alert"** and create a test alert:
+   - Title: "Ransomware encryption detected"
+   - Severity: Critical
+   - Source: EDR
+3. **Watch the metrics update** in real-time
+4. **Click the 🔍 button** to enrich with threat intel
+5. **Click the 🗺️ button** to map to MITRE ATT&CK
+6. **See the heat map light up** with detected techniques!
 
 ## API Endpoints
 
@@ -175,14 +222,12 @@ docker-compose up --build
 
 ## Authentication
 
-All API endpoints (except `/health` and `/metrics`) require an API key.
-
-**Include the header:**
+All API endpoints require an API key in the header:
 ```
 X-API-Key: your-api-key
 ```
 
-**Configure API keys in `.env`:**
+Configure API keys in `.env`:
 ```bash
 API_KEYS=your-secret-key-1,your-secret-key-2
 ```
@@ -236,38 +281,24 @@ SOAREngine/
 ├── .github/workflows/
 │   └── ci.yml              # GitHub Actions CI/CD
 ├── app/
-│   ├── api/
-│   │   ├── alerts.py       # Alert endpoints
-│   │   ├── playbooks.py    # Playbook endpoints
-│   │   ├── mitre.py        # MITRE ATT&CK endpoints
-│   │   ├── notifications.py # Notification endpoints
-│   │   └── statistics.py   # Statistics endpoints
-│   ├── auth/
-│   │   └── api_key.py      # API key authentication
-│   ├── database/
-│   │   ├── db.py           # Database configuration
-│   │   ├── models.py       # SQLAlchemy models
-│   │   └── repository.py   # Data access layer
-│   ├── models/
-│   │   ├── alert.py        # Alert data models
-│   │   ├── playbook.py     # Playbook data models
-│   │   └── mitre.py        # MITRE ATT&CK models
-│   ├── services/
-│   │   ├── enrichment.py   # Threat intel enrichment
-│   │   ├── playbook_engine.py  # Playbook execution
-│   │   ├── mitre_mapper.py # MITRE ATT&CK mapping
-│   │   ├── notifications.py # Slack notifications
-│   │   └── metrics.py      # Prometheus metrics
+│   ├── api/                # API route handlers
+│   ├── auth/               # Authentication
+│   ├── database/           # Database models & repository
+│   ├── models/             # Pydantic models
+│   ├── services/           # Business logic services
 │   ├── config.py           # Configuration management
 │   └── rate_limit.py       # Rate limiting
+├── dashboard/              # React frontend
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── services/       # API client
+│   │   └── App.js          # Main application
+│   └── package.json
 ├── webhook-receiver/       # .NET Core webhook service
 │   └── WebhookReceiver/
 │       ├── Controllers/
-│       │   └── WebhookController.cs
 │       ├── Models/
-│       │   └── AlertPayload.cs
 │       ├── Services/
-│       │   └── SoarEngineService.cs
 │       └── Program.cs
 ├── tests/
 │   └── test_api.py         # API tests
@@ -285,13 +316,13 @@ pytest tests/ -v
 
 ## Future Enhancements
 
+- [ ] Kubernetes deployment manifests
+- [ ] Azure deployment
 - [ ] Redis queue for async alert processing
 - [ ] PostgreSQL database support
 - [ ] Real-time WebSocket updates
 - [ ] Alert correlation engine
 - [ ] Additional threat intel feeds
-- [ ] Kubernetes deployment manifests
-- [ ] Multi-tenancy support
 
 ## License
 
