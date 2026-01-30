@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: soarengine
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - pvc.yaml
+  - api-deployment.yaml
+  - webhook-deployment.yaml
+  - dashboard-deployment.yaml
+  - ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/name: soarengine
+  app.kubernetes.io/version: "1.0.0"
+  app.kubernetes.io/managed-by: kustomize
+
+# Usage:
+# Deploy all resources:    kubectl apply -k k8s/
+# Delete all resources:    kubectl delete -k k8s/
+# Preview changes:         kubectl kustomize k8s/

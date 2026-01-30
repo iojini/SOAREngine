@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: soarengine-ingress
+  namespace: soarengine
+  labels:
+    app: soarengine
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - soarengine.example.com
+        - api.soarengine.example.com
+        - webhook.soarengine.example.com
+      secretName: soarengine-tls
+  rules:
+    # Dashboard
+    - host: soarengine.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: soarengine-dashboard
+                port:
+                  number: 80
+    # API
+    - host: api.soarengine.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: soarengine-api
+                port:
+                  number: 8000
+    # Webhook Receiver
+    - host: webhook.soarengine.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: soarengine-webhook
+                port:
+                  number: 5279
+---
+# Note: Replace 'example.com' with your actual domain.
+# Requires nginx-ingress controller and cert-manager for TLS.

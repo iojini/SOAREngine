@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soarengine-webhook
+  namespace: soarengine
+  labels:
+    app: soarengine
+    component: webhook
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: soarengine
+      component: webhook
+  template:
+    metadata:
+      labels:
+        app: soarengine
+        component: webhook
+    spec:
+      containers:
+        - name: webhook
+          image: soarengine/webhook-receiver:latest
+          ports:
+            - containerPort: 5279
+              name: http
+          env:
+            - name: SoarEngine__BaseUrl
+              value: "http://soarengine-api:8000"
+            - name: SoarEngine__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: soarengine-secrets
+                  key: API_KEYS
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /api/Webhook/health
+              port: 5279
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/Webhook/health
+              port: 5279
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: soarengine-webhook
+  namespace: soarengine
+  labels:
+    app: soarengine
+    component: webhook
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5279
+      targetPort: 5279
+      protocol: TCP
+      name: http
+  selector:
+    app: soarengine
+    component: webhook
