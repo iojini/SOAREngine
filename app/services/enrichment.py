@@ -7,7 +7,6 @@ from app.services.reliability import (
     dead_letter_queue,
     enrichment_circuit,
     with_retry,
-    CircuitOpenError,
     OperationType,
 )
 
