@@ -10,6 +10,7 @@ from app.api.playbooks import router as playbooks_router
 from app.api.mitre import router as mitre_router
 from app.api.notifications import router as notifications_router
 from app.api.statistics import router as statistics_router
+from app.api.reliability import router as reliability_router
 from app.config import get_settings
 from app.database.db import init_db
 from app.rate_limit import limiter, rate_limit_exceeded_handler
@@ -50,6 +51,7 @@ app.include_router(playbooks_router)
 app.include_router(mitre_router)
 app.include_router(notifications_router)
 app.include_router(statistics_router)
+app.include_router(reliability_router)
 
 # Add Prometheus metrics
 if settings.metrics_enabled:
